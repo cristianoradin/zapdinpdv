@@ -1,0 +1,51 @@
+# Ambiente virtual Python
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.spec
+
+# Configuração local (contém senhas)
+.env
+
+# Logs
+*.log
+zapdin_pdv.log
+evo.log
+evo_err.log
+evo_service*.log
+
+# Templates editados pelo usuário (regenerados no runtime)
+templates.json
+
+# Banco de dados Evolution API
+dev.db
+*.db
+
+# Ícone gerado automaticamente
+icon.ico
+
+# PyInstaller output
+dist/
+build/
+*.spec
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
