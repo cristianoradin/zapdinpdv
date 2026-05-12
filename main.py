@@ -25,6 +25,7 @@ from .config import settings
 from .evolution_local import local_evo
 from .zapdin_client import zapdin_app
 from .erp_router import router as erp_router
+from .docs_router import router as docs_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,6 +71,7 @@ app.add_middleware(
 )
 
 app.include_router(erp_router)
+app.include_router(docs_router)
 
 
 # ── Auth ERP ──────────────────────────────────────────────────────────────────
