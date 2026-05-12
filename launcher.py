@@ -47,10 +47,10 @@ def _is_primeira_vez() -> bool:
     if not ENV_PATH.exists():
         return True
     content = ENV_PATH.read_text(encoding="utf-8", errors="ignore")
-    # Considera configurado se tiver ZAPDIN_URL preenchido
+    # Considera configurado se tiver ZAPDIN_PDV_TOKEN preenchido
     for line in content.splitlines():
         line = line.strip()
-        if line.startswith("ZAPDIN_URL=") and len(line) > len("ZAPDIN_URL=http"):
+        if line.startswith("ZAPDIN_PDV_TOKEN=pdv_") and len(line) > len("ZAPDIN_PDV_TOKEN=pdv_xxx"):
             return False
     return True
 
@@ -133,10 +133,10 @@ def _show_wizard():
              bg="#f4f6f9", fg="#6b7280",
              font=("Segoe UI", 8, "bold")).pack(anchor="w")
 
-    var_url  = campo(frame, "URL do ZapDin App *",
-                     placeholder="https://app.seuservidor.com.br")
-    var_user = campo(frame, "Usuário *", placeholder="usuario@empresa.com")
-    var_pass = campo(frame, "Senha *", show="●")
+    var_url   = campo(frame, "URL do ZapDin App *",
+                      placeholder="https://app.seuservidor.com.br")
+    var_token = campo(frame, "Token PDV * (gere no App → PDV → Novo Token)",
+                      placeholder="pdv_xxxxxxxxxxxxxxxxxxxx")
 
     # Seção PDV local
     sep2 = tk.Frame(frame, bg="#e4e6ea", height=1)
@@ -158,8 +158,7 @@ def _show_wizard():
 
     def salvar():
         url   = var_url.get().strip()
-        user  = var_user.get().strip()
-        pw    = var_pass.get().strip()
+        token = var_token.get().strip()
         nome  = var_nome.get().strip()
         key   = var_key.get().strip()
         porta = var_porta.get().strip() or "4600"
@@ -167,10 +166,8 @@ def _show_wizard():
         erros = []
         if not url or url == "https://app.seuservidor.com.br":
             erros.append("• URL do ZapDin App é obrigatória")
-        if not user or user == "usuario@empresa.com":
-            erros.append("• Usuário é obrigatório")
-        if not pw:
-            erros.append("• Senha é obrigatória")
+        if not token or token == "pdv_xxxxxxxxxxxxxxxxxxxx":
+            erros.append("• Token PDV é obrigatório (gere no App)")
         if not nome or nome == "Caixa 01":
             erros.append("• Nome do caixa é obrigatório")
         if not key or key == "minha-chave-secreta-123":
@@ -190,18 +187,14 @@ def _show_wizard():
 EVOLUTION_URL=http://localhost:8080
 EVOLUTION_API_KEY=zapdin-pdv-local
 
-# ZapDin App REMOTO — credenciais
+# ZapDin App REMOTO — token de máquina (sem usuário/senha)
 ZAPDIN_URL={url}
-ZAPDIN_USERNAME={user}
-ZAPDIN_PASSWORD={pw}
+ZAPDIN_PDV_TOKEN={token}
 
 # Configuração do PDV local
 PDV_PORT={porta}
 PDV_API_KEY={key}
 PDV_NOME={nome}
-PDV_EMPRESA_ID=1
-
-SESSION_REFRESH_MINUTES=60
 """
         try:
             ENV_PATH.write_text(env_content, encoding="utf-8")

@@ -23,25 +23,22 @@ class Settings(BaseSettings):
     )
 
     # ── Evolution API LOCAL (WhatsApp roda na máquina do cliente) ─────────────
-    # O PDV conecta o WhatsApp localmente, usando recursos da máquina local.
     evolution_url: str = "http://localhost:8080"
     evolution_api_key: str = "zapdin-pdv-local"
 
-    # ── ZapDin App REMOTO (autenticação, credenciais, histórico) ──────────────
-    # O PDV fala APENAS com o ZapDin App. Quem fala com o Monitor é o App.
+    # ── ZapDin App REMOTO ─────────────────────────────────────────────────────
+    # Autenticação por TOKEN DE MÁQUINA — sem usuário/senha.
+    # O admin gera o token no App (POST /api/pdv/tokens) e cola aqui.
     zapdin_url: str = "https://app.seuservidor.com.br"
-    zapdin_username: str = ""
-    zapdin_password: str = ""
+    zapdin_pdv_token: str = ""   # ZAPDIN_PDV_TOKEN no .env
 
     # ── PDV Local ─────────────────────────────────────────────────────────────
     pdv_port: int = 4600
-    pdv_api_key: str = "pdv-local-key"     # Chave que o ERP usa no header X-PDV-Key
+    pdv_api_key: str = "pdv-local-key"   # chave que o ERP usa no header X-PDV-Key
     pdv_nome: str = "PDV"
-    pdv_empresa_id: int = 1                 # empresa_id local para nomear instâncias
 
     # ── Comportamento ─────────────────────────────────────────────────────────
     request_timeout: float = 30.0
-    session_refresh_minutes: int = 60       # re-autentica no ZapDin App a cada N min
 
 
 settings = Settings()
