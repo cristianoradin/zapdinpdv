@@ -123,8 +123,18 @@ class ZapDinAppClient:
         return {"ok": ok, "zapdin_url": settings.zapdin_url, "autenticado": ok}
 
     async def get_config(self) -> dict:
-        """Busca configurações do app remoto (mensagem padrão, etc.)."""
+        """Busca configurações gerais do app remoto."""
         code, data = await self._get("/api/config")
+        return data if code == 200 else {}
+
+    async def get_pdv_config(self) -> dict:
+        """
+        Busca configurações específicas do PDV:
+          - evolution_api_key: chave para o Evolution API local
+          - mensagem_padrao: fallback se nenhum template bater
+          - pdv_ativo: se o PDV está habilitado para esta empresa
+        """
+        code, data = await self._get("/api/pdv/config")
         return data if code == 200 else {}
 
     async def get_me(self) -> dict:
