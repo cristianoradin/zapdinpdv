@@ -27,12 +27,14 @@ DEFAULT_TEMPLATES: Dict[str, dict] = {
     "venda_realizada": {
         "descricao": "Comprovante de venda",
         "mensagem": (
+            "🏪 *{empresa_nome}*\n\n"
             "✅ *Venda Confirmada!*\n\n"
             "👤 Cliente: {nome_cliente}\n"
             "🧾 Venda Nº: {numero_venda}\n"
             "💰 Valor Total: R$ {valor_total}\n"
             "💳 Pagamento: {forma_pagamento}\n"
             "📅 Data: {data}\n\n"
+            "🛒 *Itens:*\n{itens}\n\n"
             "Obrigado pela preferência! 🙏"
         ),
         "ativo": True,

@@ -125,6 +125,72 @@ def _fmt_itens(itens: Optional[List[Dict]]) -> str:
     return "\n".join(linhas)
 
 
+async def _enviar_via_app(
+    phone: str,
+    mensagem: Optional[str],
+    arquivo_base64: Optional[str],
+    arquivo_nome: Optional[str],
+    caption: Optional[str],
+    apenas_arquivo: bool = False,
+) -> dict:
+    """
+    Roteia o envio para o ZapDin App (localhost:4000) como se fosse um ERP real.
+    O App gerencia a sessão WhatsApp, filas e anti-ban — o PDV só enfileira.
+    """
+    import httpx as _httpx
+
+    base = settings.zapdin_url.rstrip("/")
+    token = settings.zapdin_erp_token
+    if not token:
+        raise HTTPException(503, "ZAPDIN_ERP_TOKEN não configurado no .env do PDV")
+
+    headers = {"X-Token": token, "Content-Type": "application/json"}
+    phone_fmt = _fmt_phone(phone)
+    resultados = []
+
+    # 1. Envia texto via /api/erp/venda com mensagem_custom (bypass de template)
+    if mensagem and not apenas_arquivo:
+        payload = {
+            "telefone": phone_fmt,
+            "nome": "",
+            "mensagem_custom": mensagem,
+        }
+        try:
+            async with _httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(f"{base}/api/erp/venda", json=payload, headers=headers)
+        except Exception as exc:
+            raise HTTPException(503, f"ZapDin App inacessível: {exc}")
+        if r.status_code not in (200, 201):
+            raise HTTPException(400, f"ZapDin App retornou HTTP {r.status_code}: {r.text[:300]}")
+        resultados.append("texto")
+
+    # 2. Envia arquivo via /api/erp/arquivo
+    if arquivo_base64 and arquivo_nome:
+        # Remove prefixo data URI se presente (ex: data:image/png;base64,...)
+        b64 = arquivo_base64.split(",", 1)[1] if "," in arquivo_base64 else arquivo_base64
+        payload = {
+            "telefone": phone_fmt,
+            "nome_arquivo": arquivo_nome,
+            "conteudo_base64": b64,
+            "mensagem": caption or mensagem or "",
+        }
+        try:
+            async with _httpx.AsyncClient(timeout=60.0) as client:
+                r = await client.post(f"{base}/api/erp/arquivo", json=payload, headers=headers)
+        except Exception as exc:
+            raise HTTPException(503, f"ZapDin App inacessível: {exc}")
+        if r.status_code not in (200, 201):
+            raise HTTPException(400, f"ZapDin App retornou HTTP {r.status_code}: {r.text[:300]}")
+        resultados.append(f"arquivo:{arquivo_nome}")
+
+    return {
+        "ok": True,
+        "phone": phone_fmt,
+        "via": "zapdin_app",
+        "enviados": resultados,
+    }
+
+
 async def _enviar(
     phone: str,
     mensagem: Optional[str],
@@ -134,22 +200,28 @@ async def _enviar(
     sessao_id: Optional[str],
     apenas_arquivo: bool = False,
 ) -> dict:
-    """Envia mensagem e/ou arquivo via Evolution API local."""
+    """
+    Ponto central de envio — roteia conforme MODO_ENVIO no .env:
+      - "app"   → ZapDin App local (localhost:4000) — recomendado para testes
+      - "local" → Evolution API própria desta máquina
+    """
+    if settings.modo_envio == "app":
+        return await _enviar_via_app(phone, mensagem, arquivo_base64, arquivo_nome, caption, apenas_arquivo)
+
+    # ── Modo local: Evolution API própria ────────────────────────────────────
     sessao = sessao_id or local_evo.pick_connected()
     if not sessao:
-        raise HTTPException(503, "Nenhuma sessão WhatsApp conectada. Conecte o WhatsApp em /whatsapp/sessoes")
+        raise HTTPException(503, "Nenhuma sessão WhatsApp conectada. Conecte em /whatsapp/sessoes")
 
     phone_fmt = _fmt_phone(phone)
     resultados = []
 
-    # 1. Envia texto (se não for apenas_arquivo)
     if mensagem and not apenas_arquivo:
         ok, err = await local_evo.send_text(sessao, phone_fmt, mensagem)
         if not ok:
             raise HTTPException(400, f"Erro ao enviar mensagem: {err}")
         resultados.append("texto")
 
-    # 2. Envia arquivo (se fornecido)
     if arquivo_base64 and arquivo_nome:
         leg = caption or mensagem or ""
         ok, err = await local_evo.send_file_b64(sessao, phone_fmt, arquivo_nome, arquivo_base64, leg)
@@ -160,6 +232,7 @@ async def _enviar(
     return {
         "ok": True,
         "phone": phone_fmt,
+        "via": "local_evolution",
         "sessao_id": sessao,
         "enviados": resultados,
     }
@@ -214,6 +287,28 @@ async def venda(
     """Atalho para enviar comprovante de venda. Campos nomeados para facilitar integração."""
     _check_key(x_pdv_key)
 
+    # Modo app: monta mensagem completa no PDV e envia como mensagem_custom (UMA só mensagem)
+    if settings.modo_envio == "app":
+        vars_dict = {
+            "numero_venda": body.numero_venda,
+            "nome_cliente": body.nome_cliente,
+            "valor_total": body.valor_total,
+            "forma_pagamento": body.forma_pagamento,
+            "data": body.data,
+            "observacao": body.observacao or "",
+            "itens": _fmt_itens(body.itens),
+            "empresa_nome": settings.empresa_nome,
+        }
+        mensagem = templates.render("venda_realizada", vars_dict)
+        return await _enviar_via_app(
+            phone=body.phone,
+            mensagem=mensagem,
+            arquivo_base64=body.arquivo_base64,
+            arquivo_nome=body.arquivo_nome or (f"comprovante_{body.numero_venda}.pdf" if body.arquivo_base64 else None),
+            caption=f"Comprovante #{body.numero_venda}",
+        )
+
+    # Modo local: usa template do PDV
     vars_dict = {
         "numero_venda": body.numero_venda,
         "nome_cliente": body.nome_cliente,
@@ -222,6 +317,7 @@ async def venda(
         "data": body.data,
         "observacao": body.observacao or "",
         "itens": _fmt_itens(body.itens),
+        "empresa_nome": settings.empresa_nome,
     }
     mensagem = templates.render("venda_realizada", vars_dict)
 
